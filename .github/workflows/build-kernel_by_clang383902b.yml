@@ -83,8 +83,68 @@ jobs:
             echo "HAVE_SOURCE_BOOT_IMAGE=true" >> $GITHUB_ENV
         fi
   
-    - name: Setup KernelSU-Next
-           CH }}/configs/${{ env.KERNEL_CONFIG }}
+    - name: Setup KernelSU
+      if: env.ENABLE_KERNELSU == 'true'
+      run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+          curl -LSs "${{ env.KERNELSU_SETUP_SOURCE }}" | bash -s ${{ env.KERNELSU_TAG }}
+          KSU_VERSION=$(cd ${{ env.KERNELSU_TYPE }} && expr $(/usr/bin/git rev-list --count HEAD) + 10200)
+          echo "UPLOADNAME=-${{ env.KERNELSU_TYPE }}_$KSU_VERSION" >> $GITHUB_ENV
+
+    - name: Setup KernelSU Non-GKI Patch
+      if: env.ENABLE_KERNELSU_NONGKI_PATCH == 'true'
+      run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+          mv $GITHUB_WORKSPACE/patches/nongki/kernel/cred.c kernel/cred.c
+          mv $GITHUB_WORKSPACE/patches/nongki/include/linux/cred.h include/linux/cred.h
+          mv $GITHUB_WORKSPACE/patches/nongki/fs/namespace.c fs/namespace.c
+
+    - name: Setup Configuration for Kernel
+      run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+          if [ ${{ env.APPLY_KSU_PATCH }} = true ]; then
+              bash $GITHUB_WORKSPACE/patches/patches.sh
+              if grep -q "CONFIG_KSU" arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}; then
+                  sed -i 's/# CONFIG_KSU is not set/CONFIG_KSU=y/g' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+                  sed -i 's/CONFIG_KSU=n/CONFIG_KSU=y/g' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              else
+                  echo "CONFIG_KSU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              fi
+          fi
+          if [ ${{ env.ADD_KPROBES_CONFIG }} = true -a ${{ env.APPLY_KSU_PATCH }} != true ]; then
+              echo "CONFIG_MODULES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              echo "CONFIG_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              echo "CONFIG_HAVE_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              echo "CONFIG_KPROBE_EVENTS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          fi
+          if [ ${{ env.ADD_OVERLAYFS_CONFIG }} = true ]; then
+              echo "CONFIG_OVERLAY_FS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          fi
+          if [ ${{ env.DISABLE-LTO }} = true ]; then
+              sed -i 's/CONFIG_LTO=y/CONFIG_LTO=n/' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              sed -i 's/CONFIG_LTO_CLANG=y/CONFIG_LTO_CLANG=n/' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              sed -i 's/CONFIG_THINLTO=y/CONFIG_THINLTO=n/' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              echo "CONFIG_LTO_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          fi
+          if [ ${{ env.DISABLE_CC_WERROR }} = true ]; then
+              echo "CONFIG_CC_WERROR=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          fi
+
+    - name: Setup SUSFS For KernelSU Environment&Kernel Config
+      if: env.ENABLE_SUSFS == 'true'
+      run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+          if [[ ${{ env.SUSFS_KERNELSU_MODE }} == 0 ]]; then
+              echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          else
+              if [[ ${{ env.SUSFS_KERNELSU_MODE }} == 1 ]]; then
+                echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+              fi
+          fi
+          echo "CONFIG_KSU_CMDLINE=1" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          echo "CONFIG_KSU_SUSFS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
@@ -98,9 +158,9 @@ jobs:
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y"  >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           echo "SUSFS_KERNEL_VERSION=$(head -n 1 $GITHUB_WORKSPACE/kernel_workspace/android-kernel/Makefile|grep 'VERSION'|awk -F '= ' '{print $2}').$(head -n 2 $GITHUB_WORKSPACE/kernel_workspace/android-kernel/Makefile|grep 'PATCHLEVEL'|awk -F '= ' '{print $2}')" >> $GITHUB_ENV
 
-      - name: Setup SUSFS For KernelSU
-        if: env.ENABLE_SUSFS == 'true'
-        run: |
+    - name: Setup SUSFS For KernelSU
+      if: env.ENABLE_SUSFS == 'true'
+      run: |
           cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
           git clone --recursive ${{ env.SUSFS_SOURCE }} -b ${{ env.SUSFS_SOURCE_BRANCH }} susfs4ksu --depth=1
 
@@ -115,7 +175,6 @@ jobs:
           cd ../
           patch -p1 < 50_add_susfs_in_kernel-$SUSFS_KERNEL_VERSION.patch
 
-      
 
     - name: Setup Configuration for Kernel
       run: |
