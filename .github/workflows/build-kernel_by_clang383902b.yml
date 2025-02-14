@@ -79,13 +79,13 @@ jobs:
         if: env.REMOVE_UNUSED_PACKAGES == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: ture
-          android: false
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: false 
+            tool-cache: ture
+            android: false
+            dotnet: true
+            haskell: true
+            large-packages: true
+            docker-images: true
+            swap-storage: false 
           
       - name: Set swap to 10G
         uses: pierotofy/set-swap-space@master
@@ -225,8 +225,8 @@ jobs:
         if: env.ENABLE_CCACHE == 'true'
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-        key: build-kernel-${{ env.DEVICE }}${{ env.UPLOADNAME }}
-        max-size: 2G
+          key: build-kernel-${{ env.DEVICE }}${{ env.UPLOADNAME }}
+          max-size: 2G
     
       - name: Build kernel
         run: |
