@@ -137,16 +137,16 @@ jobs:
           KSU_VERSION=$(cd ${{ env.KERNELSU_TYPE }} && expr $(/usr/bin/git rev-list --count HEAD) + 10200)
           echo "UPLOADNAME=-${{ env.KERNELSU_TYPE }}_$KSU_VERSION" >> $GITHUB_ENV
 
-    - name: Setup KernelSU Non-GKI Patch
-      if: env.ENABLE_KERNELSU_NONGKI_PATCH == 'true'
-      run: |
+      - name: Setup KernelSU Non-GKI Patch
+        if: env.ENABLE_KERNELSU_NONGKI_PATCH == 'true'
+        run: |
           cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
           mv $GITHUB_WORKSPACE/patches/nongki/kernel/cred.c kernel/cred.c
           mv $GITHUB_WORKSPACE/patches/nongki/include/linux/cred.h include/linux/cred.h
           mv $GITHUB_WORKSPACE/patches/nongki/fs/namespace.c fs/namespace.c
 
-    - name: Setup Configuration for Kernel
-      run: |
+      - name: Setup Configuration for Kernel
+        run: |
           cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
           if [ ${{ env.APPLY_KSU_PATCH }} = true ]; then
               bash $GITHUB_WORKSPACE/patches/patches.sh
@@ -176,9 +176,9 @@ jobs:
               echo "CONFIG_CC_WERROR=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           fi
 
-    - name: Setup SUSFS For KernelSU Environment&Kernel Config
-      if: env.ENABLE_SUSFS == 'true'
-      run: |
+      - name: Setup SUSFS For KernelSU Environment&Kernel Config
+        if: env.ENABLE_SUSFS == 'true'
+        run: |
           cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
           if [[ ${{ env.SUSFS_KERNELSU_MODE }} == 0 ]]; then
               echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
@@ -204,9 +204,9 @@ jobs:
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y"  >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
           echo "SUSFS_KERNEL_VERSION=$(head -n 1 $GITHUB_WORKSPACE/kernel_workspace/android-kernel/Makefile|grep 'VERSION'|awk -F '= ' '{print $2}').$(head -n 2 $GITHUB_WORKSPACE/kernel_workspace/android-kernel/Makefile|grep 'PATCHLEVEL'|awk -F '= ' '{print $2}')" >> $GITHUB_ENV
 
-    - name: Setup SUSFS For KernelSU
-      if: env.ENABLE_SUSFS == 'true'
-      run: |
+      - name: Setup SUSFS For KernelSU
+        if: env.ENABLE_SUSFS == 'true'
+        run: |
           cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
           git clone --recursive ${{ env.SUSFS_SOURCE }} -b ${{ env.SUSFS_SOURCE_BRANCH }} susfs4ksu --depth=1
 
@@ -221,107 +221,107 @@ jobs:
           cd ../
           patch -p1 < 50_add_susfs_in_kernel-$SUSFS_KERNEL_VERSION.patch
            
-    - name: Setup ccache
-      if: env.ENABLE_CCACHE == 'true'
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
+      - name: Setup ccache
+        if: env.ENABLE_CCACHE == 'true'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
         key: build-kernel-${{ env.DEVICE }}${{ env.UPLOADNAME }}
         max-size: 2G
     
-    - name: Build kernel
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/bin:$GITHUB_WORKSPACE/kernel_workspace/aarch64-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/armhf-4.9/bin:$PATH
-        export KBUILD_BUILD_HOST=Github-Action
-        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
-        if [ ! -z ${{ env.KSU_EXPECTED_SIZE }} ] && [ ! -z ${{ env.KSU_EXPECTED_HASH }} ]; then
+      - name: Build kernel
+        run: |
+         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+         export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/bin:$GITHUB_WORKSPACE/kernel_workspace/aarch64-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/armhf-4.9/bin:$PATH
+         export KBUILD_BUILD_HOST=Github-Action
+         export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
+         if [ ! -z ${{ env.KSU_EXPECTED_SIZE }} ] && [ ! -z ${{ env.KSU_EXPECTED_HASH }} ]; then
           export KSU_EXPECTED_SIZE=${{ env.KSU_EXPECTED_SIZE }}
           export KSU_EXPECTED_HASH=${{ env.KSU_EXPECTED_HASH }}
-        fi 
-        make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
-        if [ ${{ env.ENABLE_CCACHE }} = true ]; then
+         fi 
+         make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
+         if [ ${{ env.ENABLE_CCACHE }} = true ]; then
             make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- 
-        else
-            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
-        fi
+         else
+             make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
+         fi
         
-    - name: Check a kernel output files
-      run: |
-       cd $GITHUB_WORKSPACE/kernel_workspace
-       if [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ]; then
+      - name: Check a kernel output files
+        run: |
+         cd $GITHUB_WORKSPACE/kernel_workspace
+         if [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ]; then
            echo "CHECK_FILE_IS_OK=true" >> $GITHUB_ENV
-       else
+         else
            echo "Kernel output file is empty"
            exit 1
-       fi
-       if [ ${{ env.NEED_DTBO }} = true ]; then
+         fi
+         if [ ${{ env.NEED_DTBO }} = true ]; then
            if [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img ]; then
                echo "CHECK_DTBO_IS_OK=true" >> $GITHUB_ENV
            else
                echo "DTBO image is empty"
                exit 1
            fi
-       fi
+         fi
   
-    - name: Make Anykernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone https://github.com/tomxi1997/AnyKernel3.git
-        cp android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} AnyKernel3/
-        if [ ${{ env.CHECK_DTBO_IS_OK }} = true ]; then
+      - name: Make Anykernel3
+        if: env.CHECK_FILE_IS_OK == 'true'
+        run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace
+          git clone https://github.com/tomxi1997/AnyKernel3.git
+          cp android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} AnyKernel3/
+          if [ ${{ env.CHECK_DTBO_IS_OK }} = true ]; then
             cp android-kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img AnyKernel3/
-        fi
-        rm -rf AnyKernel3/.git* AnyKernel3/README.md
+          fi
+          rm -rf AnyKernel3/.git* AnyKernel3/README.md
 
-    - name: Make boot image with magiskboot
-      if: env.HAVE_SOURCE_BOOT_IMAGE == 'true' && env.CHECK_FILE_IS_OK == 'true' && env.BUILD_BOOT_IMG == 'true'
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        wget -O magisk.tar.xz https://github.com/tomxi1997/KernelSU-Next-Action/releases/download/v1/magiskboot.tar.xz
-        tar -xf magisk.tar.xz
-        sudo chmod +x magiskboot
-        mkdir -p ./tmp
-        cp magiskboot ./tmp
-        cp boot-source.img ./tmp/boot.img
-        cd ./tmp
-        ./magiskboot unpack boot.img 
-        rm kernel
-        cp ../android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ./kernel
-        ./magiskboot repack boot.img 
-        cp new-boot.img $GITHUB_WORKSPACE/kernel_workspace/boot.img
-        cd ..
-        if [ -f boot.img ]; then
+      - name: Make boot image with magiskboot
+        if: env.HAVE_SOURCE_BOOT_IMAGE == 'true' && env.CHECK_FILE_IS_OK == 'true' && env.BUILD_BOOT_IMG == 'true'
+        run: |
+          cd $GITHUB_WORKSPACE/kernel_workspace
+          wget -O magisk.tar.xz https://github.com/tomxi1997/KernelSU-Next-Action/releases/download/v1/magiskboot.tar.xz
+          tar -xf magisk.tar.xz
+          sudo chmod +x magiskboot
+          mkdir -p ./tmp
+          cp magiskboot ./tmp
+          cp boot-source.img ./tmp/boot.img
+          cd ./tmp
+          ./magiskboot unpack boot.img 
+          rm kernel
+          cp ../android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ./kernel
+          ./magiskboot repack boot.img 
+          cp new-boot.img $GITHUB_WORKSPACE/kernel_workspace/boot.img
+          cd ..
+          if [ -f boot.img ]; then
             echo "MAKE_BOOT_IMAGE_IS_OK=true" >> $GITHUB_ENV
-        else
+          else
             echo "Boot image is empty"
             exit 1
-        fi
+          fi
     
-    - name: Upload ${{ env.KERNEL_IMAGE_NAME }}
-      if: env.CHECK_FILE_IS_OK == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.KERNEL_IMAGE_NAME }}${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: kernel_workspace/android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }}
+      - name: Upload ${{ env.KERNEL_IMAGE_NAME }}
+        if: env.CHECK_FILE_IS_OK == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+         name: ${{ env.KERNEL_IMAGE_NAME }}${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
+         path: kernel_workspace/android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }}
 
-    - name: Upload AnyKernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: AnyKernel3${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: kernel_workspace/AnyKernel3/*
+      - name: Upload AnyKernel3
+        if: env.CHECK_FILE_IS_OK == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnyKernel3${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
+          path: kernel_workspace/AnyKernel3/*
 
-    - name: Upload DTBO image
-      if: env.CHECK_DTBO_IS_OK == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: dtbo-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: kernel_workspace/android-kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img
+      - name: Upload DTBO image
+        if: env.CHECK_DTBO_IS_OK == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtbo-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
+          path: kernel_workspace/android-kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img
 
-    - name: Upload boot image
-      if: env.MAKE_BOOT_IMAGE_IS_OK == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: boot${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: kernel_workspace/boot.img
+      - name: Upload boot image
+        if: env.MAKE_BOOT_IMAGE_IS_OK == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
+          path: kernel_workspace/boot.img
