@@ -101,11 +101,11 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/kernel_workspace
   
 
-      - name: Download clang-416183b1 and gcc-4.9
+      - name: Download clang
         run: |
-          mkdir -p clang
+          mkdir ./clang-aosp
           wget -q https://github.com/ZyCromerZ/Clang/releases/download/19.0.0git-20240125-release/Clang-19.0.0git-20240125.tar.gz
-          tar -xzf Clang-19.0.0git-20240125.tar.gz -C clang
+          tar -xzf Clang-19.0.0git-20240125.tar.gz -C clang-aosp
           
       - name: Download kernel source
         run: |
