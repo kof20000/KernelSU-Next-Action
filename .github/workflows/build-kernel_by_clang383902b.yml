@@ -103,14 +103,11 @@ jobs:
 
       - name: Download clang-416183b1 and gcc-4.9
         run: |
-         cd $GITHUB_WORKSPACE/kernel_workspace
-         mkdir ./clang-aosp 
-         wget -O clang.tar.gz https://kali.download/nethunter-images/toolchains/clang-r416183b1.tar.gz
-         tar -C clang-aosp/ -xf clang.tar.gz
-         wget https://kali.download/nethunter-images/toolchains/google_aarch64-4.9.tar.xz
-         wget https://kali.download/nethunter-images/toolchains/google_armhf-4.9.tar.xz
-         tar -xf google_aarch64-4.9.tar.xz
-         tar -xf google_armhf-4.9.tar.xz
+          mkdir -p $GITHUB_WORKSPACE/kernel_workspace
+          cd $GITHUB_WORKSPACE/kernel_workspace
+          wget -q https://github.com/ZyCromerZ/Clang/releases/download/19.0.0git-20240125-release/Clang-19.0.0git-20240125.tar.gz
+          mkdir -p clang
+          tar -xzf Clang-19.0.0git-20240125.tar.gz -C clang
           
         
 
