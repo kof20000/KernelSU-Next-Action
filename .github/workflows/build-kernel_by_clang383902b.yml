@@ -106,7 +106,6 @@ jobs:
           cd $GITHUB_WORKSPACE/kernel_workspace
           mkdir ./clang-aosp
           git clone https://github.xiaohei.me/prorooter007/android_prebuilts_clang_host_linux-x86_clang-6877366.git clang-aosp
-          cd clang-aosp
           wget https://kali.download/nethunter-images/toolchains/google_aarch64-4.9.tar.xz
           wget https://kali.download/nethunter-images/toolchains/google_armhf-4.9.tar.xz
           tar -xf google_aarch64-4.9.tar.xz
